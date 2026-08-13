@@ -42,7 +42,8 @@ finds next to itself. You can also point it somewhere else:
 node verify.mjs /path/to/archive
 ```
 
-Two flags exist. `--allow-dev-keys` downgrades the refusal of a development
+Three flags exist. `--help` (or `-h`) prints the usage block and exits without
+verifying anything. `--allow-dev-keys` downgrades the refusal of a development
 signing key to a warning, and a published archive must never need it.
 `--scan-budget=<n>` raises or lowers how many directories the search for
 misplaced campaign material may open (default 50 000). Lowering it never hides
@@ -53,10 +54,15 @@ Exit codes: `0` means no integrity failure was found, `1` means at least one
 check failed, `2` means nothing was verified at all (missing directory, no
 campaign, bad arguments). A `2` still prints the full report, because the case
 where nothing could be checked is the case where knowing *what was skipped*
-matters most.
+matters most. Note which case `2` most often is: a repository that carries this
+program and its documentation but holds no campaign yet exits `2` on a perfectly
+healthy run. The program ran to the end; there was simply nothing to verify.
 
-The final line is one of three:
+The final line is one of four:
 
+- `NOTHING VERIFIED` — no campaign directory was found under the root. Not a
+  judgement on anything: the run found nothing to judge, and the report above it
+  names what it did find.
 - `FAILED` — at least one proof does not hold.
 - `VERIFIED WITH LIMITS` — no check failed, but the run states things it is
   **not** entitled to conclude. Read them; they are the interesting part.
@@ -329,11 +335,18 @@ or when it was captured.
 
 The **count** is printed per campaign, because it differs and because a count
 that is not what the publisher expects is the whole point. The **reasoning** is
-printed once, for the whole archive, under `archive root`. Expect this limit on
-any published archive: a payload file is only ever written for a published
-record, so every campaign carries it, and twelve near-identical paragraphs under
-an instruction to read them is how a reader learns to skip the block where the
-revoked key and the missing predecessor also live.
+printed once, for the whole archive, under `archive root`.
+
+A campaign escapes this limit only when every record it holds is published *and*
+in archive format 2 — then the run prints `all N record(s) are tied to signed
+bytes` and nothing is left unauthenticated. That does happen, and the
+publisher's own corpus is an example of it. But a payload file is only ever
+written for a published record, so any campaign that held a record back, or that
+predates archive format 2, reports the limit; expect it on most archives, and on
+a large one expect it once per campaign. The reasoning is said once for that
+reason: near-identical paragraphs repeated a dozen times under an instruction to
+read them is how a reader learns to skip the block where the revoked key and the
+missing predecessor also live.
 
 Note the phrasing it uses for records with no payload file: **absent from this
 copy**, not "unpublished". The archive does not authenticate which records were

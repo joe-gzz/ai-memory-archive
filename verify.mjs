@@ -103,20 +103,27 @@ const DEVELOPMENT_KEY_ID_PREFIX = "dev-";
 /** Length of an Ed25519 signature, in bytes (RFC 8032). */
 const SIGNATURE_BYTES = 64;
 
-/** Manifest fields that enter the signed bytes, and only those. */
+/**
+ * Manifest fields that enter the signed bytes, and only those. This list is
+ * what a reimplementation copies, so it has to be exactly right: it once left
+ * out `manifestFormatVersion`, which does enter them. Canonicalizing the six
+ * remaining fields produces bytes that are not the bytes that were signed, and
+ * every signature check would then fail for a reason nothing in the report
+ * would name.
+ */
 const SIGNED_MANIFEST_FIELDS = [
   "campaignId",
   "createdAt",
   "keyId",
+  "manifestFormatVersion",
   "merkleRoot",
   "previousManifestHash",
   "snapshotCount",
 ];
 
-/** Every field a `manifest.json` may hold: the signed ones plus four unsigned. */
+/** Every field a `manifest.json` may hold: the seven signed ones plus four unsigned. */
 const KNOWN_MANIFEST_FIELDS = new Set([
   ...SIGNED_MANIFEST_FIELDS,
-  "manifestFormatVersion",
   "isDevelopment",
   "manifestHash",
   "signature",
@@ -927,6 +934,10 @@ async function verifyManifest(root, campaignId, keys, report) {
 
   let canonicalBytes;
   try {
+    // The seven fields of SIGNED_MANIFEST_FIELDS, no more and no fewer.
+    // `manifestFormatVersion` is rebuilt from the constant rather than read
+    // from the file only because the check above already refused any other
+    // value; it is a signed field like the six others, not an unsigned one.
     canonicalBytes = canonicalize({
       manifestFormatVersion: SUPPORTED_MANIFEST_FORMAT_VERSION,
       campaignId: manifest.campaignId,
@@ -1338,14 +1349,21 @@ function reportUnlinkedRecords(authenticated, tally, report) {
 /**
  * States, **once for the whole archive**, what an unlinked record means.
  *
- * The explanation used to be repeated inside every per-campaign limit, and the
- * ceiling this file fought to make reachable turned out to be unreachable for
- * the real corpus anyway: `archive-writer.ts` only writes a payload file for a
- * *published* record, so every campaign will always carry this limit. Measured
+ * The explanation used to be repeated inside every per-campaign limit. Measured
  * on twelve campaigns: twelve near-identical paragraphs of roughly 700
  * characters each. That is the same failure mode as the twelve identical
  * timestamp paragraphs — a block long enough that a reader learns to skip it,
  * and it is the block where the revoked key and the missing predecessor live.
+ *
+ * **The ceiling is reachable, and saying otherwise was a plain falsehood in a
+ * document sold as a specification.** The earlier wording read: a payload file
+ * is only ever written for a *published* record, so every campaign carries this
+ * limit. The premise is true and the conclusion does not follow from it — it
+ * needs a campaign holding a record that was never published, or one in archive
+ * format 1. A campaign where every record is published and self-contained is
+ * fully cross-checked and reports a PASS instead, which is exactly what the
+ * publisher's own corpus does today. The error leaned the safe way, which is
+ * why it survived so long; it was still an untruth.
  *
  * The counts stay per campaign, because they differ and because a campaign
  * whose count is not what its publisher expects is the whole point. Only the
@@ -1358,10 +1376,12 @@ function reportUnlinkedRecordsExplanation(campaignCount, report) {
       "signed bytes. The Merkle root is built from payloadHash alone, so for those records the two fields are " +
       "free: swapping the archiveIds of two such leaves, or rewriting their capturedAt, leaves the root valid " +
       "and every signature intact. This verifier proves those hashes belong to the campaign and REFUSES to " +
-      "conclude which record any of them is, or when it was captured. Expect this on any published archive — a " +
-      "payload file exists only for a published record — but expecting it is not the same as it being empty: " +
-      "read the per-campaign counts, and note that a record can also land here because its payload file failed " +
-      "a check, which is reported separately above.",
+      "conclude which record any of them is, or when it was captured. Expect this on most published archives — " +
+      "a payload file exists only for a published record, so any campaign that held one back reports it, as " +
+      "does any campaign in archive format 1 — but a campaign whose records are all published and all " +
+      "self-contained escapes it entirely and is reported as a PASS above. Expecting a limit is not the same " +
+      "as it being empty: read the per-campaign counts, and note that a record can also land here because its " +
+      "payload file failed a check, which is reported separately above.",
   );
 }
 
@@ -2086,6 +2106,7 @@ async function walkArchiveRoot(root, entries, report, scanBudget) {
 const USAGE = `ai-memory archive verifier
 
 Usage: node verify.mjs [archive-root] [--allow-dev-keys] [--scan-budget=<n>]
+       node verify.mjs --help
 
   archive-root      Directory holding keys/public-keys.json and one folder per
                     campaign. Defaults to the directory this script sits in, so
@@ -2099,8 +2120,14 @@ Usage: node verify.mjs [archive-root] [--allow-dev-keys] [--scan-budget=<n>]
                     anything silently: whatever is left unsearched is named as
                     a limit. Raise it if that limit appears.
 
+  --help, -h        Print this block and exit without verifying anything.
+
 Exit code 0 means no integrity failure was found; 1 means at least one check
-failed; 2 means the verifier could not run at all.`;
+failed; 2 means nothing was verified at all — a missing directory, no campaign
+under the root, or arguments this program could not read. A 2 does not mean the
+program gave up: it runs to the end and prints the full report, and a repository
+holding this program and its documentation but no campaign yet exits 2 on a
+perfectly healthy run.`;
 
 /**
  * Prints the collected report and returns the number of failing checks.

@@ -10,18 +10,18 @@ plainly is the reason this file exists.
 
 - `verify.mjs` — the independent verifier. Byte for byte the program the
   publisher runs, with no dependencies and no imports from the application.
-  Its SHA-256 is `3ba253618973854c8195ad160d853e6187df9bad5ea3f4aabeaca8900f057e72`.
+  Its SHA-256 is `ed26b56ec54960e9384d9db11ddf42493e3c2712fb367e8f541f1496261bd7f4`.
   That number is not a security control — the same party publishes the file
   and the fingerprint — but it turns the sentence before it into something you
-  can check against your own clone. It does not make a stale copy visible: were
-  this copy to fall behind, the file and the number would stay frozen together
-  and perfectly consistent, and the sentence above would go on being false in
-  silence. It did, for a day — comments changed in the source repository, this
-  copy did not, and the file here was 1766 bytes shorter than the program being
-  run. What the fingerprint buys is that the comparison is possible at all, for
-  anyone holding both copies. Noticing the lag is a separate job, and it is done
-  by a test in the repository that produces this stream, which fails until the
-  two agree again.
+  can check against your own clone. It does not, by itself, make a stale copy
+  visible: were this copy to fall behind, the file and the number would stay
+  frozen together and perfectly consistent, and the sentence above would go on
+  being false in silence. That happened once, for a day, before any mechanism
+  watched for it. What watches now is a test in the repository that produces
+  this stream: it holds the fingerprint this file announces and fails until the
+  two agree, so the source repository cannot be released while this copy lags.
+  It has since caught one lag — this one — before publication rather than after.
+  What the fingerprint buys a reader is that the comparison is possible at all.
 - `README.md` — its specification: how to run it, what a passing run proves,
   and, at considerably greater length, what it does not.
 - `keys/public-keys.json` — the key ring. It is **empty**. See below.
