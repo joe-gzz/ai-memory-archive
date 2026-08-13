@@ -1,0 +1,17 @@
+# Every byte in this repository is either hashed, signed, or read as a
+# specification. Git must never rewrite any of it: a checkout that converts
+# line endings changes a payload's hash, invalidates a signature, or changes
+# the size of the very file a reader is asked to fingerprint.
+* -text
+
+# The verifier and its specification are pinned to LF explicitly, mirroring
+# `verifier/** text eol=lf` in the repository that produces them. Without that
+# rule, a Windows clone with `core.autocrlf=true` published a CRLF `verify.mjs`
+# next to an LF `README.md` — two different byte counts for a program whose
+# whole point is that two readers can compare its fingerprint and get the same
+# answer.
+verify.mjs text eol=lf
+README.md text eol=lf
+
+# Timestamp tokens are DER, not text.
+*.tsr binary
