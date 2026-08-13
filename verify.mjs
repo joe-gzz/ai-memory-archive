@@ -455,6 +455,26 @@ const LINK_REFUSAL = "a symbolic link or junction, which this verifier never fol
  * Returns the kind of the last component — `"file"`, `"directory"`, `"other"`,
  * `"missing"` — or `"link"` as soon as any component is one, or an error code.
  * `at` names the component that stopped the walk, so a caller can say which.
+ *
+ * **`base` is trusted, `parts` are not, and that is a calling discipline rather
+ * than anything a type enforces.** Only the components in `parts` are checked;
+ * `base` is passed to `path.join` as given. Every caller in this file builds
+ * `base` from the archive root, or from a directory a `Dirent` already resolved
+ * to a real directory, so the guarantee holds today. A future caller that
+ * assembled a `base` of its own — say `path.join(root, campaignId, "tsr")` to
+ * spare a component — would move that segment out of the checked set, and a
+ * link sitting on it would be traversed with no line in the report to say so.
+ * Pass the whole relative path in `parts`; keep `base` an already-verified
+ * root.
+ *
+ * **The TOCTOU window between this walk and the read that follows it is left
+ * open, deliberately.** Nothing stops a component from being replaced by a link
+ * between the `lstat` here and the `readFile` the caller issues next; closing
+ * it would take an `open`-then-`fstat` on a handle, with `O_NOFOLLOW` on each
+ * component. The threat model does not warrant it: the object under
+ * examination is a static archive, published as a Git repository and read from
+ * a copy, and an attacker able to rewrite entries under the reader's feet while
+ * the run is in progress already controls the bytes the verifier was given.
  */
 async function inspectUnder(base, parts) {
   let current = base;
@@ -1804,8 +1824,15 @@ const DEFAULT_SCAN_BUDGET = 50_000;
  * never a link — and the starting directory is resolved the same way by its
  * caller. The walk is therefore link-free by construction rather than by
  * re-checking each component, which would cost an `lstat` per component per
- * directory on a walk bounded at 50 000 of them. If this function ever gains a
- * second way to enqueue a path, that argument dies with it.
+ * directory on a walk bounded at 50 000 of them.
+ *
+ * What would kill that argument is worth stating exactly, because the obvious
+ * phrasing — "a second way to enqueue a path" — is already false: there are two,
+ * the seed and the loop below, and both are sound. The argument dies with either
+ * of these instead: a path enqueued without a `Dirent` having classified it as a
+ * real directory, or a caller seeding this walk with a directory it never
+ * classified that way. Both put an unchecked component in front of every
+ * `readdir` that follows.
  */
 async function scanForManifests(dir, budget) {
   const found = [];
