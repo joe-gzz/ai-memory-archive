@@ -10,6 +10,13 @@ plainly is the reason this file exists.
 
 - `verify.mjs` — the independent verifier. Byte for byte the program the
   publisher runs, with no dependencies and no imports from the application.
+  Its SHA-256 is `3ba253618973854c8195ad160d853e6187df9bad5ea3f4aabeaca8900f057e72`.
+  That number is not a security control — the same party publishes the file
+  and the fingerprint — but it turns the sentence before it into something you
+  can check against your own clone, and it makes this copy falling behind
+  visible instead of assumed. It fell behind once already: comments changed in
+  the source repository, this copy did not, and the claim above was false for a
+  day while the file here was 1766 bytes shorter than the program being run.
 - `README.md` — its specification: how to run it, what a passing run proves,
   and, at considerably greater length, what it does not.
 - `keys/public-keys.json` — the key ring. It is **empty**. See below.
